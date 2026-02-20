@@ -204,7 +204,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100 overflow-hidden">
+    <div className="flex flex-col h-[100dvh] bg-zinc-950 text-zinc-100 overflow-hidden overscroll-none">
       {/* Header */}
       <header className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-6 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-md z-20">
         <div className="flex items-center gap-2 sm:gap-3">
@@ -213,7 +213,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-lg sm:text-xl font-display uppercase tracking-wider text-emerald-400 neon-glow">Neon Genesis</h1>
-            <p className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">v0.4.0</p>
+            <p className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">v0.7.0</p>
           </div>
         </div>
 
@@ -249,7 +249,7 @@ export default function App() {
 
       <main className="flex-1 flex flex-col sm:flex-row overflow-hidden pb-20 sm:pb-0">
         {/* Left Panel: The Clicker */}
-        <section className={`flex-1 flex flex-col items-center justify-center relative p-6 sm:p-12 border-r border-zinc-900 ${activeTab === 'clicker' ? 'flex' : 'hidden sm:flex'}`}>
+        <section className={`flex-1 flex flex-col items-center justify-start sm:justify-center relative p-6 sm:p-12 border-r border-zinc-900 overflow-y-auto custom-scrollbar overscroll-contain touch-pan-y ${activeTab === 'clicker' ? 'flex' : 'hidden sm:flex'}`}>
           <div className="absolute top-6 sm:top-12 left-6 sm:left-12">
             <div className="flex flex-col gap-1">
               <span className="text-[9px] sm:text-[11px] font-mono text-zinc-500 uppercase tracking-[0.2em]">Total Earned</span>
@@ -314,7 +314,7 @@ export default function App() {
         </section>
 
         {/* Right Panel: Upgrades */}
-        <aside className={`w-full sm:w-[400px] bg-zinc-900/30 flex flex-col ${activeTab === 'upgrades' ? 'flex' : 'hidden sm:flex'}`}>
+        <aside className={`w-full sm:w-[400px] bg-zinc-900/30 flex flex-col overflow-hidden overscroll-contain ${activeTab === 'upgrades' ? 'flex' : 'hidden sm:flex'}`}>
           <div className="p-4 sm:p-6 border-b border-zinc-800">
             <h2 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-[0.2em] text-zinc-400">Upgrades & Tech</h2>
           </div>
@@ -440,6 +440,9 @@ export default function App() {
       </AnimatePresence>
 
       <style>{`
+        .custom-scrollbar {
+          -webkit-overflow-scrolling: touch;
+        }
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;
         }

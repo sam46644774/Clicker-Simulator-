@@ -89,6 +89,42 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.7.0',
+    date: 'Thursday, March 26th, 2026',
+    sections: {
+      bugFixes: [
+        'Upgrade Scrolling: Fixed a layout issue where the upgrades list could fail to scroll correctly on certain mobile devices.',
+        'Layout Stability: Ensured the upgrades panel correctly fills the available viewport height.'
+      ]
+    }
+  },
+  {
+    version: '0.6.0',
+    date: 'Thursday, March 19th, 2026',
+    sections: {
+      bugFixes: [
+        'Mobile Scrolling: Fixed an issue where content could be cut off at the top on small screens due to centering.',
+        'Viewport Fix: Switched to dynamic viewport units (dvh) to prevent UI jumping when mobile browser bars appear/disappear.'
+      ],
+      qol: [
+        'Added smooth momentum scrolling for iOS devices.',
+        'Prevented accidental pull-to-refresh while interacting with the game.'
+      ]
+    }
+  },
+  {
+    version: '0.5.0',
+    date: 'Thursday, March 12th, 2026',
+    sections: {
+      overhaul: [
+        'Global Scrolling: All game panels now support vertical scrolling, ensuring full accessibility on extremely small screens or zoomed-in views.'
+      ],
+      qol: [
+        'Improved scrollbar styling for a more consistent "Neon" look across all scrollable areas.'
+      ]
+    }
+  },
+  {
     version: '0.4.0',
     date: 'Thursday, March 5th, 2026',
     sections: {
