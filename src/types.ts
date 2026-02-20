@@ -23,12 +23,30 @@ export interface ResearchUpgrade {
   type: 'click_mult' | 'auto_mult' | 'cost_reduction';
 }
 
+export interface Pet {
+  id: string;
+  name: string;
+  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+  bonusType: 'click' | 'auto' | 'all';
+  bonusValue: number;
+}
+
+export interface Egg {
+  id: string;
+  name: string;
+  cost: number;
+  currencyType: 'credits' | 'shards';
+  pool: { petId: string; weight: number }[];
+}
+
 export interface GameState {
   currency: number;
   totalCurrencyEarned: number;
   clickCount: number;
   upgrades: Record<string, number>; // upgradeId -> level
   research: Record<string, number>; // researchId -> level
+  pets: string[]; // owned pet IDs
+  activePetId?: string;
   lastSave: number;
   settings?: GameSettings;
   prestigeCurrency: number;
@@ -137,6 +155,39 @@ export const RESEARCH_UPGRADES: ResearchUpgrade[] = [
   }
 ];
 
+export const PETS: Pet[] = [
+  { id: 'neon_cat', name: 'Neon Cat', rarity: 'common', bonusType: 'auto', bonusValue: 1.05 },
+  { id: 'cyber_dog', name: 'Cyber Dog', rarity: 'common', bonusType: 'click', bonusValue: 1.05 },
+  { id: 'data_raven', name: 'Data Raven', rarity: 'uncommon', bonusType: 'auto', bonusValue: 1.10 },
+  { id: 'glitch_fox', name: 'Glitch Fox', rarity: 'rare', bonusType: 'all', bonusValue: 1.15 },
+  { id: 'void_dragon', name: 'Void Dragon', rarity: 'legendary', bonusType: 'all', bonusValue: 1.50 }
+];
+
+export const EGGS: Egg[] = [
+  {
+    id: 'basic_egg',
+    name: 'Basic Egg',
+    cost: 5000,
+    currencyType: 'credits',
+    pool: [
+      { petId: 'neon_cat', weight: 45 },
+      { petId: 'cyber_dog', weight: 45 },
+      { petId: 'data_raven', weight: 10 }
+    ]
+  },
+  {
+    id: 'shard_egg',
+    name: 'Neural Egg',
+    cost: 50,
+    currencyType: 'shards',
+    pool: [
+      { petId: 'data_raven', weight: 50 },
+      { petId: 'glitch_fox', weight: 40 },
+      { petId: 'void_dragon', weight: 10 }
+    ]
+  }
+];
+
 export interface ChangelogEntry {
   version: string;
   date: string;
@@ -152,6 +203,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.2.0',
+    date: 'Thursday, April 30th, 2026',
+    sections: {
+      newContent: [
+        'Incubator System: Hatch eggs to discover unique Cyber-Pets.',
+        'Cyber-Pets: Collect and equip pets to gain massive permanent multipliers to your production.',
+        'Rarity Tiers: Pets range from Common to Legendary, each with distinct visual glows and power levels.'
+      ],
+      improvements: [
+        'UI Expansion: Added a new Incubator tab for managing your pet collection.',
+        'Visual Effects: Added rarity-based glow effects for pet cards.'
+      ]
+    }
+  },
   {
     version: '1.1.0',
     date: 'Thursday, April 23rd, 2026',

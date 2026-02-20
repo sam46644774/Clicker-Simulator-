@@ -27,9 +27,12 @@ import {
   Sun,
   Globe,
   Microscope,
-  Layers
+  Layers,
+  Egg as EggIcon,
+  Sparkle,
+  Trophy
 } from 'lucide-react';
-import { GameState, UPGRADES, Upgrade, CHANGELOG, GameSettings, RESEARCH_UPGRADES, ResearchUpgrade } from './types';
+import { GameState, UPGRADES, Upgrade, CHANGELOG, GameSettings, RESEARCH_UPGRADES, ResearchUpgrade, PETS, EGGS, Pet, Egg } from './types';
 
 const SAVE_ID = 'player_one'; 
 
@@ -52,6 +55,8 @@ export default function App() {
     clickCount: 0,
     upgrades: {},
     research: {},
+    pets: [],
+    activePetId: undefined,
     lastSave: Date.now(),
     settings: {
       showFloatingText: true,
@@ -66,8 +71,9 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [activeTab, setActiveTab] = useState<'clicker' | 'upgrades' | 'research'>('clicker');
+  const [activeTab, setActiveTab] = useState<'clicker' | 'upgrades' | 'research' | 'incubator'>('clicker');
   const [buyAmount, setBuyAmount] = useState<1 | 10 | 100>(1);
+  const [hatchingPet, setHatchingPet] = useState<Pet | null>(null);
 
   // Keyboard Support
   useEffect(() => {
@@ -102,7 +108,9 @@ export default function App() {
             settings: data.settings ? { ...prev.settings, ...data.settings } : prev.settings,
             prestigeCurrency: data.prestigeCurrency ?? 0,
             prestigeCount: data.prestigeCount ?? 0,
-            research: data.research ?? {}
+            research: data.research ?? {},
+            pets: data.pets ?? [],
+            activePetId: data.activePetId
           }));
         }
       } catch (e) {
@@ -139,6 +147,10 @@ export default function App() {
   // Calculate stats
   const prestigeMultiplier = 1 + (state.prestigeCurrency * 0.01);
   
+  const activePet = PETS.find(p => p.id === state.activePetId);
+  const petClickMult = activePet?.bonusType === 'click' || activePet?.bonusType === 'all' ? activePet.bonusValue : 1;
+  const petAutoMult = activePet?.bonusType === 'auto' || activePet?.bonusType === 'all' ? activePet.bonusValue : 1;
+
   const researchClickMult = 1 + RESEARCH_UPGRADES
     .filter(r => r.type === 'click_mult')
     .reduce((acc, r) => acc + (state.research[r.id] || 0) * r.power, 0);
@@ -153,11 +165,11 @@ export default function App() {
 
   const clickPower = Math.floor((1 + UPGRADES
     .filter(u => u.type === 'click')
-    .reduce((acc, u) => acc + (state.upgrades[u.id] || 0) * u.power, 0)) * prestigeMultiplier * researchClickMult);
+    .reduce((acc, u) => acc + (state.upgrades[u.id] || 0) * u.power, 0)) * prestigeMultiplier * researchClickMult * petClickMult);
 
   const autoPower = Math.floor((UPGRADES
     .filter(u => u.type === 'auto')
-    .reduce((acc, u) => acc + (state.upgrades[u.id] || 0) * u.power, 0)) * prestigeMultiplier * researchAutoMult);
+    .reduce((acc, u) => acc + (state.upgrades[u.id] || 0) * u.power, 0)) * prestigeMultiplier * researchAutoMult * petAutoMult);
 
   const calculatePendingShards = () => {
     const threshold = 1000000;
@@ -268,6 +280,50 @@ export default function App() {
     }
   };
 
+  const hatchEgg = (egg: Egg) => {
+    const canAfford = egg.currencyType === 'credits' 
+      ? state.currency >= egg.cost 
+      : state.prestigeCurrency >= egg.cost;
+
+    if (!canAfford) return;
+
+    // Deduct cost
+    setState(prev => ({
+      ...prev,
+      currency: egg.currencyType === 'credits' ? prev.currency - egg.cost : prev.currency,
+      prestigeCurrency: egg.currencyType === 'shards' ? prev.prestigeCurrency - egg.cost : prev.prestigeCurrency
+    }));
+
+    // Randomly pick a pet from pool
+    const totalWeight = egg.pool.reduce((acc, p) => acc + p.weight, 0);
+    let random = Math.random() * totalWeight;
+    let selectedPetId = egg.pool[0].petId;
+
+    for (const p of egg.pool) {
+      if (random < p.weight) {
+        selectedPetId = p.petId;
+        break;
+      }
+      random -= p.weight;
+    }
+
+    const pet = PETS.find(p => p.id === selectedPetId)!;
+    setHatchingPet(pet);
+
+    // Add to collection if not already owned
+    setState(prev => ({
+      ...prev,
+      pets: prev.pets.includes(selectedPetId) ? prev.pets : [...prev.pets, selectedPetId]
+    }));
+  };
+
+  const togglePet = (petId: string) => {
+    setState(prev => ({
+      ...prev,
+      activePetId: prev.activePetId === petId ? undefined : petId
+    }));
+  };
+
   const getUpgradeCost = (upgrade: Upgrade, levelOverride?: number) => {
     const currentLevel = levelOverride !== undefined ? levelOverride : (state.upgrades[upgrade.id] || 0);
     const baseCost = upgrade.baseCost * (1 - researchCostReduction);
@@ -346,7 +402,7 @@ export default function App() {
           </div>
           <div>
             <h1 className={`text-lg sm:text-xl font-display uppercase tracking-wider ${theme.primary} ${theme.glow}`}>Neon Genesis</h1>
-            <p className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">v1.1.0</p>
+            <p className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">v1.2.0</p>
           </div>
         </div>
 
@@ -456,7 +512,7 @@ export default function App() {
           </AnimatePresence>
         </section>
 
-        {/* Right Panel: Upgrades or Research */}
+        {/* Right Panel: Upgrades, Research or Incubator */}
         <aside className={`w-full sm:w-[400px] bg-zinc-900/30 flex flex-col overflow-hidden overscroll-contain ${activeTab !== 'clicker' ? 'flex' : 'hidden sm:flex'}`}>
           {/* Desktop Tab Switcher */}
           <div className="hidden sm:flex border-b border-zinc-800">
@@ -472,9 +528,15 @@ export default function App() {
             >
               Research
             </button>
+            <button 
+              onClick={() => setActiveTab('incubator')}
+              className={`flex-1 py-4 text-[10px] font-mono font-bold uppercase tracking-[0.2em] transition-colors ${activeTab === 'incubator' ? theme.primary : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              Incubator
+            </button>
           </div>
 
-          {activeTab === 'upgrades' ? (
+          {activeTab === 'upgrades' && (
             <>
               <div className="p-4 sm:p-6 border-b border-zinc-800 flex items-center justify-between">
                 <h2 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-[0.2em] text-zinc-400 sm:hidden">Upgrades</h2>
@@ -542,7 +604,9 @@ export default function App() {
                 })}
               </div>
             </>
-          ) : (
+          )}
+
+          {activeTab === 'research' && (
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="p-4 sm:p-6 border-b border-zinc-800 sm:hidden">
                 <h2 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-[0.2em] text-zinc-400">Neural Research</h2>
@@ -665,6 +729,125 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {activeTab === 'incubator' && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-4 sm:p-6 border-b border-zinc-800 sm:hidden">
+                <h2 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-[0.2em] text-zinc-400">Cyber Incubator</h2>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-8 custom-scrollbar">
+                {/* Eggs Section */}
+                <div className="space-y-4">
+                  <h3 className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                    <EggIcon className="w-3 h-3" /> Available Eggs
+                  </h3>
+                  <div className="grid grid-cols-1 gap-3">
+                    {EGGS.map(egg => {
+                      const canAfford = egg.currencyType === 'credits' 
+                        ? state.currency >= egg.cost 
+                        : state.prestigeCurrency >= egg.cost;
+
+                      return (
+                        <button
+                          key={egg.id}
+                          onClick={() => hatchEgg(egg)}
+                          disabled={!canAfford}
+                          className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
+                            canAfford 
+                              ? `bg-zinc-900 border-zinc-800 hover:${theme.border} hover:bg-zinc-800/80` 
+                              : 'bg-zinc-900/50 border-zinc-800/50 opacity-60 grayscale cursor-not-allowed'
+                          }`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-lg ${canAfford ? `bg-zinc-800 ${theme.primary}` : 'bg-zinc-800 text-zinc-500'}`}>
+                              <EggIcon className="w-6 h-6" />
+                            </div>
+                            <div className="text-left">
+                              <p className="font-bold text-zinc-200">{egg.name}</p>
+                              <p className="text-[10px] text-zinc-500 uppercase font-mono">Hatch for random pet</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className={`font-mono font-bold ${canAfford ? theme.primary : 'text-zinc-500'}`}>
+                              {formatNumber(egg.cost)} {egg.currencyType === 'credits' ? 'Credits' : 'Shards'}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Collection Section */}
+                <div className="space-y-4">
+                  <h3 className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                    <Trophy className="w-3 h-3" /> Pet Collection ({state.pets.length}/{PETS.length})
+                  </h3>
+                  <div className="grid grid-cols-1 gap-3">
+                    {state.pets.length === 0 ? (
+                      <div className="p-8 text-center border border-dashed border-zinc-800 rounded-2xl">
+                        <p className="text-xs text-zinc-600 uppercase font-mono tracking-widest">No pets discovered yet</p>
+                      </div>
+                    ) : (
+                      state.pets.map(petId => {
+                        const pet = PETS.find(p => p.id === petId)!;
+                        const isActive = state.activePetId === petId;
+                        const rarityColor = {
+                          common: 'text-zinc-400',
+                          uncommon: 'text-emerald-400',
+                          rare: 'text-blue-400',
+                          epic: 'text-purple-400',
+                          legendary: 'text-orange-400'
+                        }[pet.rarity];
+
+                        return (
+                          <button
+                            key={petId}
+                            onClick={() => togglePet(petId)}
+                            className={`w-full text-left p-4 rounded-xl border transition-all relative overflow-hidden ${
+                              isActive ? `${theme.border} bg-zinc-800/50` : 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800/80'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between relative z-10">
+                              <div className="flex items-center gap-4">
+                                <div className={`p-3 rounded-lg bg-zinc-800 ${isActive ? theme.primary : 'text-zinc-500'}`}>
+                                  <Bot className="w-6 h-6" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-bold text-zinc-200">{pet.name}</p>
+                                    <span className={`text-[8px] font-mono uppercase px-1.5 py-0.5 rounded bg-zinc-800 ${rarityColor}`}>
+                                      {pet.rarity}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-zinc-500 font-mono uppercase">
+                                    +{Math.round((pet.bonusValue - 1) * 100)}% {pet.bonusType} Power
+                                  </p>
+                                </div>
+                              </div>
+                              {isActive && (
+                                <div className={`px-2 py-1 rounded text-[8px] font-mono uppercase font-bold ${theme.accent} text-white`}>
+                                  Active
+                                </div>
+                              )}
+                            </div>
+                            {/* Rarity Glow */}
+                            <div className={`absolute inset-0 opacity-5 pointer-events-none ${
+                              pet.rarity === 'legendary' ? 'bg-orange-500' : 
+                              pet.rarity === 'epic' ? 'bg-purple-500' :
+                              pet.rarity === 'rare' ? 'bg-blue-500' :
+                              pet.rarity === 'uncommon' ? 'bg-emerald-500' : 'bg-zinc-500'
+                            }`} />
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </aside>
       </main>
 
@@ -691,7 +874,72 @@ export default function App() {
           <FlaskConical className="w-6 h-6" />
           <span className="text-[10px] font-mono uppercase tracking-widest">Research</span>
         </button>
+        <button 
+          onClick={() => setActiveTab('incubator')}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'incubator' ? theme.primary : 'text-zinc-500'}`}
+        >
+          <EggIcon className="w-6 h-6" />
+          <span className="text-[10px] font-mono uppercase tracking-widest">Incubator</span>
+        </button>
       </nav>
+
+      {/* Hatching Modal */}
+      <AnimatePresence>
+        {hatchingPet && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+            />
+            <motion.div 
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.5, opacity: 0 }}
+              className="relative bg-zinc-900 border border-zinc-800 p-8 rounded-3xl text-center max-w-sm w-full shadow-2xl"
+            >
+              <div className="mb-6 flex justify-center">
+                <motion.div
+                  animate={{ 
+                    rotate: [0, -10, 10, -10, 10, 0],
+                    scale: [1, 1.1, 1]
+                  }}
+                  transition={{ duration: 0.5, repeat: 2 }}
+                >
+                  <Bot className={`w-24 h-24 ${
+                    hatchingPet.rarity === 'legendary' ? 'text-orange-400' : 
+                    hatchingPet.rarity === 'epic' ? 'text-purple-400' :
+                    hatchingPet.rarity === 'rare' ? 'text-blue-400' :
+                    hatchingPet.rarity === 'uncommon' ? 'text-emerald-400' : 'text-zinc-400'
+                  }`} />
+                </motion.div>
+              </div>
+              <h2 className="text-2xl font-display uppercase tracking-wider text-white mb-2">New Pet Hatched!</h2>
+              <p className={`text-lg font-bold mb-1 ${
+                hatchingPet.rarity === 'legendary' ? 'text-orange-400' : 
+                hatchingPet.rarity === 'epic' ? 'text-purple-400' :
+                hatchingPet.rarity === 'rare' ? 'text-blue-400' :
+                hatchingPet.rarity === 'uncommon' ? 'text-emerald-400' : 'text-zinc-400'
+              }`}>{hatchingPet.name}</p>
+              <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest mb-6">{hatchingPet.rarity} Rarity</p>
+              
+              <div className="p-4 bg-zinc-800/50 rounded-2xl border border-zinc-800 mb-8">
+                <p className="text-sm text-zinc-300">
+                  Provides a permanent <span className={theme.primary}>+{Math.round((hatchingPet.bonusValue - 1) * 100)}%</span> boost to <span className="uppercase font-mono">{hatchingPet.bonusType}</span> power.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setHatchingPet(null)}
+                className={`w-full py-4 rounded-xl font-mono font-bold uppercase tracking-widest ${theme.accent} text-white`}
+              >
+                Collect Pet
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Settings Modal */}
       <AnimatePresence>
