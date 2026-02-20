@@ -20,13 +20,17 @@ import {
   Eye,
   EyeOff,
   Sparkles,
-  Monitor
+  Monitor,
+  FlaskConical,
+  ShieldAlert,
+  ZapOff
 } from 'lucide-react';
 import { GameState, UPGRADES, Upgrade, CHANGELOG, GameSettings } from './types';
 
 const SAVE_ID = 'player_one'; 
 
 const formatNumber = (num: number) => {
+  if (isNaN(num)) return '0';
   if (num < 1000) return Math.floor(num).toString();
   const suffixes = ['', 'k', 'M', 'B', 'T', 'P', 'E'];
   const suffixNum = Math.floor(("" + Math.floor(num)).length / 3);
@@ -48,14 +52,16 @@ export default function App() {
       showFloatingText: true,
       enableAnimations: true,
       theme: 'neon'
-    }
+    },
+    prestigeCurrency: 0,
+    prestigeCount: 0
   });
 
   const [floatingTexts, setFloatingTexts] = useState<{ id: number; x: number; y: number; value: number }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [activeTab, setActiveTab] = useState<'clicker' | 'upgrades'>('clicker');
+  const [activeTab, setActiveTab] = useState<'clicker' | 'upgrades' | 'research'>('clicker');
 
   // Keyboard Support
   useEffect(() => {
@@ -84,7 +90,13 @@ export default function App() {
         const res = await fetch(`/api/save/${SAVE_ID}`);
         if (res.ok) {
           const data = await res.json();
-          setState(data);
+          setState(prev => ({
+            ...prev,
+            ...data,
+            settings: data.settings ? { ...prev.settings, ...data.settings } : prev.settings,
+            prestigeCurrency: data.prestigeCurrency ?? 0,
+            prestigeCount: data.prestigeCount ?? 0
+          }));
         }
       } catch (e) {
         console.error("Failed to load save", e);
@@ -118,13 +130,41 @@ export default function App() {
   }, [state, saveGame]);
 
   // Calculate stats
-  const clickPower = 1 + UPGRADES
-    .filter(u => u.type === 'click')
-    .reduce((acc, u) => acc + (state.upgrades[u.id] || 0) * u.power, 0);
+  const prestigeMultiplier = 1 + (state.prestigeCurrency * 0.01);
 
-  const autoPower = UPGRADES
+  const clickPower = Math.floor((1 + UPGRADES
+    .filter(u => u.type === 'click')
+    .reduce((acc, u) => acc + (state.upgrades[u.id] || 0) * u.power, 0)) * prestigeMultiplier);
+
+  const autoPower = Math.floor((UPGRADES
     .filter(u => u.type === 'auto')
-    .reduce((acc, u) => acc + (state.upgrades[u.id] || 0) * u.power, 0);
+    .reduce((acc, u) => acc + (state.upgrades[u.id] || 0) * u.power, 0)) * prestigeMultiplier);
+
+  const calculatePendingShards = () => {
+    const threshold = 1000000;
+    if (state.totalCurrencyEarned < threshold) return 0;
+    const totalPossible = Math.floor(Math.sqrt(state.totalCurrencyEarned / threshold) * 10);
+    const pending = totalPossible - state.prestigeCurrency;
+    return Math.max(0, pending);
+  };
+
+  const handlePrestige = () => {
+    const pending = calculatePendingShards();
+    if (pending <= 0) return;
+
+    if (window.confirm(`Are you sure you want to perform a Neural Reset? You will gain ${pending} Neural Shards but lose all your current credits and upgrades.`)) {
+      setState(prev => ({
+        ...prev,
+        currency: 0,
+        upgrades: {},
+        prestigeCurrency: prev.prestigeCurrency + pending,
+        prestigeCount: prev.prestigeCount + 1,
+        // We keep totalCurrencyEarned as it's the basis for shard calculation
+        // but some games reset it. Let's keep it for now to make shards cumulative.
+      }));
+      setActiveTab('clicker');
+    }
+  };
 
   // Game Loop for Auto-Clickers
   useEffect(() => {
@@ -248,7 +288,7 @@ export default function App() {
           </div>
           <div>
             <h1 className={`text-lg sm:text-xl font-display uppercase tracking-wider ${theme.primary} ${theme.glow}`}>Neon Genesis</h1>
-            <p className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">v0.9.0</p>
+            <p className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">v1.0.1</p>
           </div>
         </div>
 
@@ -358,62 +398,153 @@ export default function App() {
           </AnimatePresence>
         </section>
 
-        {/* Right Panel: Upgrades */}
-        <aside className={`w-full sm:w-[400px] bg-zinc-900/30 flex flex-col overflow-hidden overscroll-contain ${activeTab === 'upgrades' ? 'flex' : 'hidden sm:flex'}`}>
-          <div className="p-4 sm:p-6 border-b border-zinc-800">
-            <h2 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-[0.2em] text-zinc-400">Upgrades & Tech</h2>
+        {/* Right Panel: Upgrades or Research */}
+        <aside className={`w-full sm:w-[400px] bg-zinc-900/30 flex flex-col overflow-hidden overscroll-contain ${activeTab !== 'clicker' ? 'flex' : 'hidden sm:flex'}`}>
+          {/* Desktop Tab Switcher */}
+          <div className="hidden sm:flex border-b border-zinc-800">
+            <button 
+              onClick={() => setActiveTab('upgrades')}
+              className={`flex-1 py-4 text-[10px] font-mono font-bold uppercase tracking-[0.2em] transition-colors ${activeTab === 'upgrades' ? theme.primary : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              Upgrades
+            </button>
+            <button 
+              onClick={() => setActiveTab('research')}
+              className={`flex-1 py-4 text-[10px] font-mono font-bold uppercase tracking-[0.2em] transition-colors ${activeTab === 'research' ? theme.primary : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              Research
+            </button>
           </div>
-          
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 custom-scrollbar">
-            {UPGRADES.map((upgrade) => {
-              const cost = getUpgradeCost(upgrade);
-              const canAfford = state.currency >= cost;
-              const level = state.upgrades[upgrade.id] || 0;
 
-              return (
-                <button
-                  key={upgrade.id}
-                  onClick={() => buyUpgrade(upgrade)}
-                  disabled={!canAfford}
-                  className={`w-full text-left p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden min-h-[100px] ${
-                    canAfford 
-                      ? `bg-zinc-900 border-zinc-800 hover:${theme.border} hover:bg-zinc-800/80` 
-                      : 'bg-zinc-900/50 border-zinc-800/50 opacity-60 grayscale cursor-not-allowed'
-                  }`}
-                >
-                  <div className="flex items-start justify-between relative z-10">
-                    <div className="flex gap-3 sm:gap-4">
-                      <div className={`p-2.5 sm:p-3 rounded-lg ${canAfford ? `bg-zinc-800 ${theme.primary}` : 'bg-zinc-800 text-zinc-500'}`}>
-                        {getIcon(upgrade.id)}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-zinc-200 text-sm sm:text-base">{upgrade.name}</h3>
-                          <span className="text-[9px] sm:text-[10px] font-mono bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-500">LVL {level}</span>
+          {activeTab === 'upgrades' ? (
+            <>
+              <div className="p-4 sm:p-6 border-b border-zinc-800 sm:hidden">
+                <h2 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-[0.2em] text-zinc-400">Upgrades & Tech</h2>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 custom-scrollbar">
+                {UPGRADES.map((upgrade) => {
+                  const cost = getUpgradeCost(upgrade);
+                  const canAfford = state.currency >= cost;
+                  const level = state.upgrades[upgrade.id] || 0;
+
+                  return (
+                    <button
+                      key={upgrade.id}
+                      onClick={() => buyUpgrade(upgrade)}
+                      disabled={!canAfford}
+                      className={`w-full text-left p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden min-h-[100px] ${
+                        canAfford 
+                          ? `bg-zinc-900 border-zinc-800 hover:${theme.border} hover:bg-zinc-800/80` 
+                          : 'bg-zinc-900/50 border-zinc-800/50 opacity-60 grayscale cursor-not-allowed'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between relative z-10">
+                        <div className="flex gap-3 sm:gap-4">
+                          <div className={`p-2.5 sm:p-3 rounded-lg ${canAfford ? `bg-zinc-800 ${theme.primary}` : 'bg-zinc-800 text-zinc-500'}`}>
+                            {getIcon(upgrade.id)}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-zinc-200 text-sm sm:text-base">{upgrade.name}</h3>
+                              <span className="text-[9px] sm:text-[10px] font-mono bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-500">LVL {level}</span>
+                            </div>
+                            <p className="text-[11px] sm:text-xs text-zinc-500 mt-1 leading-relaxed">{upgrade.description}</p>
+                          </div>
                         </div>
-                        <p className="text-[11px] sm:text-xs text-zinc-500 mt-1 leading-relaxed">{upgrade.description}</p>
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="mt-4 flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-1.5">
-                      <Zap className={`w-3 h-3 ${canAfford ? theme.primary : 'text-zinc-600'}`} />
-                      <span className={`text-xs sm:text-sm font-mono font-bold ${canAfford ? theme.primary : 'text-zinc-500'}`}>
-                        {formatNumber(cost)}
+                      <div className="mt-4 flex items-center justify-between relative z-10">
+                        <div className="flex items-center gap-1.5">
+                          <Zap className={`w-3 h-3 ${canAfford ? theme.primary : 'text-zinc-600'}`} />
+                          <span className={`text-xs sm:text-sm font-mono font-bold ${canAfford ? theme.primary : 'text-zinc-500'}`}>
+                            {formatNumber(cost)}
+                          </span>
+                        </div>
+                        <div className={`text-[9px] sm:text-[10px] font-mono uppercase tracking-wider flex items-center gap-1 ${canAfford ? theme.primary : 'text-zinc-600'}`}>
+                          Purchase <ChevronRight className="w-3 h-3" />
+                        </div>
+                      </div>
+
+                      {/* Progress bar background for next level */}
+                      <div className={`absolute bottom-0 left-0 h-[2px] ${theme.accent}/30 transition-all duration-300`} style={{ width: `${Math.min(100, (state.currency / cost) * 100)}%` }} />
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-4 sm:p-6 border-b border-zinc-800 sm:hidden">
+                <h2 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-[0.2em] text-zinc-400">Neural Research</h2>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-8 custom-scrollbar">
+                {/* Prestige Stats */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-zinc-900/50 rounded-2xl border border-zinc-800">
+                    <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1">Neural Shards</div>
+                    <div className={`text-2xl font-mono font-bold ${theme.primary}`}>{state.prestigeCurrency}</div>
+                  </div>
+                  <div className="p-4 bg-zinc-900/50 rounded-2xl border border-zinc-800">
+                    <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1">Total Boost</div>
+                    <div className="text-2xl font-mono font-bold text-zinc-200">+{state.prestigeCurrency}%</div>
+                  </div>
+                </div>
+
+                {/* Reset Section */}
+                <div className="p-6 bg-zinc-900 rounded-2xl border border-zinc-800 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <RefreshCw className="w-16 h-16" />
+                  </div>
+                  
+                  <h3 className="text-lg font-bold text-zinc-100 mb-2">Neural Reset</h3>
+                  <p className="text-xs text-zinc-500 mb-6 leading-relaxed">
+                    Reboot your neural network to consolidate your progress. You will lose all credits and upgrades, but gain Neural Shards based on your total earnings.
+                  </p>
+
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between p-3 bg-zinc-800/30 rounded-xl border border-zinc-800">
+                      <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Pending Shards</span>
+                      <span className={`text-lg font-mono font-bold ${calculatePendingShards() > 0 ? theme.primary : 'text-zinc-600'}`}>
+                        +{calculatePendingShards()}
                       </span>
                     </div>
-                    <div className={`text-[9px] sm:text-[10px] font-mono uppercase tracking-wider flex items-center gap-1 ${canAfford ? theme.primary : 'text-zinc-600'}`}>
-                      Purchase <ChevronRight className="w-3 h-3" />
-                    </div>
-                  </div>
 
-                  {/* Progress bar background for next level */}
-                  <div className={`absolute bottom-0 left-0 h-[2px] ${theme.accent}/30 transition-all duration-300`} style={{ width: `${Math.min(100, (state.currency / cost) * 100)}%` }} />
-                </button>
-              );
-            })}
-          </div>
+                    <button
+                      onClick={handlePrestige}
+                      disabled={calculatePendingShards() <= 0}
+                      className={`w-full py-4 rounded-xl font-mono font-bold uppercase tracking-widest transition-all ${
+                        calculatePendingShards() > 0 
+                          ? `${theme.accent} text-white shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98]` 
+                          : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                      }`}
+                    >
+                      Initialize Reboot
+                    </button>
+                  </div>
+                </div>
+
+                {/* Advanced Stats */}
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest">System Statistics</h4>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Total Resets', value: state.prestigeCount },
+                      { label: 'Total Credits Earned', value: formatNumber(state.totalCurrencyEarned) },
+                      { label: 'Total Clicks', value: state.clickCount.toLocaleString() },
+                      { label: 'Current Multiplier', value: `${prestigeMultiplier.toFixed(2)}x` }
+                    ].map((stat, i) => (
+                      <div key={i} className="flex items-center justify-between py-2 border-b border-zinc-800/50">
+                        <span className="text-xs text-zinc-500">{stat.label}</span>
+                        <span className="text-xs font-mono text-zinc-300">{stat.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </aside>
       </main>
 
@@ -421,17 +552,24 @@ export default function App() {
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 flex items-center justify-around h-20 px-4 z-30">
         <button 
           onClick={() => setActiveTab('clicker')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'clicker' ? 'text-emerald-400' : 'text-zinc-500'}`}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'clicker' ? theme.primary : 'text-zinc-500'}`}
         >
           <MousePointerClick className="w-6 h-6" />
           <span className="text-[10px] font-mono uppercase tracking-widest">Clicker</span>
         </button>
         <button 
           onClick={() => setActiveTab('upgrades')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'upgrades' ? 'text-emerald-400' : 'text-zinc-500'}`}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'upgrades' ? theme.primary : 'text-zinc-500'}`}
         >
           <LayoutGrid className="w-6 h-6" />
           <span className="text-[10px] font-mono uppercase tracking-widest">Upgrades</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('research')}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'research' ? theme.primary : 'text-zinc-500'}`}
+        >
+          <FlaskConical className="w-6 h-6" />
+          <span className="text-[10px] font-mono uppercase tracking-widest">Research</span>
         </button>
       </nav>
 

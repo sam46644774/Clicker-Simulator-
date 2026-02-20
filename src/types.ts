@@ -21,6 +21,8 @@ export interface GameState {
   upgrades: Record<string, number>; // upgradeId -> level
   lastSave: number;
   settings?: GameSettings;
+  prestigeCurrency: number;
+  prestigeCount: number;
 }
 
 export const UPGRADES: Upgrade[] = [
@@ -95,6 +97,34 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.0.1',
+    date: 'Thursday, April 16th, 2026',
+    sections: {
+      bugFixes: [
+        'Data Integrity: Fixed an issue where loading old save files could result in "NaN" values due to missing prestige data.',
+        'Number Formatting: Added safety checks to the number formatter to prevent "NaNk" displays.'
+      ]
+    }
+  },
+  {
+    version: '1.0.0',
+    date: 'Thursday, April 16th, 2026',
+    sections: {
+      newContent: [
+        'Neural Reset (Prestige): Unlock the ability to reboot your system for permanent Neural Shards.',
+        'Neural Shards: Each shard provides a permanent +1% boost to all income.',
+        'Research Tab: A new interface to manage your prestige progress and view advanced statistics.'
+      ],
+      overhaul: [
+        'Major Version 1.0: The game has reached its first major milestone with the introduction of the prestige loop.'
+      ],
+      improvements: [
+        'Balanced early game costs to account for prestige multipliers.',
+        'Enhanced visual feedback for massive credit gains.'
+      ]
+    }
+  },
   {
     version: '0.9.0',
     date: 'Thursday, April 9th, 2026',
