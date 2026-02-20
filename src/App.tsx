@@ -13,9 +13,16 @@ import {
   Bot,
   LayoutGrid,
   MousePointerClick,
-  Database
+  Database,
+  Settings,
+  Volume2,
+  VolumeX,
+  Eye,
+  EyeOff,
+  Sparkles,
+  Monitor
 } from 'lucide-react';
-import { GameState, UPGRADES, Upgrade, CHANGELOG } from './types';
+import { GameState, UPGRADES, Upgrade, CHANGELOG, GameSettings } from './types';
 
 const SAVE_ID = 'player_one'; 
 
@@ -36,12 +43,18 @@ export default function App() {
     totalCurrencyEarned: 0,
     clickCount: 0,
     upgrades: {},
-    lastSave: Date.now()
+    lastSave: Date.now(),
+    settings: {
+      showFloatingText: true,
+      enableAnimations: true,
+      theme: 'neon'
+    }
   });
 
   const [floatingTexts, setFloatingTexts] = useState<{ id: number; x: number; y: number; value: number }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<'clicker' | 'upgrades'>('clicker');
 
   // Keyboard Support
@@ -52,7 +65,7 @@ export default function App() {
         if (e.code === 'Space') e.preventDefault();
         
         // Trigger click if modal is not open
-        if (!showChangelog) {
+        if (!showChangelog && !showSettings) {
           const clickerBtn = document.getElementById('main-clicker-btn');
           if (clickerBtn) {
             clickerBtn.click();
@@ -145,10 +158,12 @@ export default function App() {
       y = e.touches[0].clientY;
     }
 
-    setFloatingTexts(prev => [...prev, { id, x, y, value }]);
-    setTimeout(() => {
-      setFloatingTexts(prev => prev.filter(t => t.id !== id));
-    }, 1000);
+    setFloatingTexts(prev => state.settings?.showFloatingText ? [...prev, { id, x, y, value }] : prev);
+    if (state.settings?.showFloatingText) {
+      setTimeout(() => {
+        setFloatingTexts(prev => prev.filter(t => t.id !== id));
+      }, 1000);
+    }
   };
 
   const buyUpgrade = (upgrade: Upgrade) => {
@@ -184,6 +199,26 @@ export default function App() {
     }
   };
 
+  const updateSettings = (newSettings: Partial<GameSettings>) => {
+    setState(prev => ({
+      ...prev,
+      settings: {
+        ...(prev.settings || { showFloatingText: true, enableAnimations: true, theme: 'neon' }),
+        ...newSettings
+      }
+    }));
+  };
+
+  const getThemeColors = () => {
+    switch(state.settings?.theme) {
+      case 'matrix': return { primary: 'text-green-500', accent: 'bg-green-500', border: 'border-green-500/30', glow: 'green-glow' };
+      case 'classic': return { primary: 'text-blue-500', accent: 'bg-blue-500', border: 'border-blue-500/30', glow: 'blue-glow' };
+      default: return { primary: 'text-emerald-400', accent: 'bg-emerald-500', border: 'border-emerald-500/30', glow: 'neon-glow' };
+    }
+  };
+
+  const theme = getThemeColors();
+
   const renderChangelogSection = (title: string, items?: string[]) => {
     if (!items || items.length === 0) return null;
     return (
@@ -212,22 +247,29 @@ export default function App() {
             <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
           </div>
           <div>
-            <h1 className="text-lg sm:text-xl font-display uppercase tracking-wider text-emerald-400 neon-glow">Neon Genesis</h1>
-            <p className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">v0.8.0</p>
+            <h1 className={`text-lg sm:text-xl font-display uppercase tracking-wider ${theme.primary} ${theme.glow}`}>Neon Genesis</h1>
+            <p className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">v0.9.0</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3 sm:gap-6">
           <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-zinc-800/50 rounded-full border border-zinc-700/50">
-            <Database className={`w-3 h-3 ${isSaving ? 'text-emerald-400 animate-pulse' : 'text-zinc-500'}`} />
+            <Database className={`w-3 h-3 ${isSaving ? `${theme.primary} animate-pulse` : 'text-zinc-500'}`} />
             <span className="text-[9px] font-mono text-zinc-400 uppercase tracking-widest">DataStore Sync</span>
           </div>
           <div className="hidden sm:flex flex-col items-end">
             <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Auto-Income</span>
-            <span className="text-lg font-mono font-bold text-emerald-400">+{formatNumber(autoPower)}/s</span>
+            <span className={`text-lg font-mono font-bold ${theme.primary}`}>+{formatNumber(autoPower)}/s</span>
           </div>
           <div className="hidden sm:block h-8 w-[1px] bg-zinc-800" />
           <div className="flex gap-1 sm:gap-2">
+            <button 
+              onClick={() => setShowSettings(true)}
+              className="p-2 sm:p-3 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-400 hover:text-white min-w-[44px] min-h-[44px] flex items-center justify-center"
+              title="Settings"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
             <button 
               onClick={() => setShowChangelog(true)}
               className="p-2 sm:p-3 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-400 hover:text-white min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -291,7 +333,7 @@ export default function App() {
             </div>
             <div className="text-center sm:hidden">
               <div className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1">Auto/s</div>
-              <div className="text-lg sm:text-xl font-mono font-bold text-emerald-400">+{autoPower}</div>
+              <div className={`text-lg sm:text-xl font-mono font-bold ${theme.primary}`}>+{autoPower}</div>
             </div>
             <div className="text-center">
               <div className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1">Total Clicks</div>
@@ -301,14 +343,17 @@ export default function App() {
 
           {/* Floating Texts */}
           <AnimatePresence>
-            {floatingTexts.map(t => (
-              <span 
+            {state.settings?.enableAnimations && floatingTexts.map(t => (
+              <motion.span 
                 key={t.id} 
-                className="floating-text absolute font-mono font-bold text-emerald-400 text-xl z-50 pointer-events-none"
+                initial={{ opacity: 1, y: 0 }}
+                animate={{ opacity: 0, y: -100 }}
+                exit={{ opacity: 0 }}
+                className={`floating-text absolute font-mono font-bold ${theme.primary} text-xl z-50 pointer-events-none`}
                 style={{ left: t.x - 10, top: t.y - 20 }}
               >
                 +{t.value}
-              </span>
+              </motion.span>
             ))}
           </AnimatePresence>
         </section>
@@ -332,13 +377,13 @@ export default function App() {
                   disabled={!canAfford}
                   className={`w-full text-left p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden min-h-[100px] ${
                     canAfford 
-                      ? 'bg-zinc-900 border-zinc-800 hover:border-emerald-500/50 hover:bg-zinc-800/80' 
+                      ? `bg-zinc-900 border-zinc-800 hover:${theme.border} hover:bg-zinc-800/80` 
                       : 'bg-zinc-900/50 border-zinc-800/50 opacity-60 grayscale cursor-not-allowed'
                   }`}
                 >
                   <div className="flex items-start justify-between relative z-10">
                     <div className="flex gap-3 sm:gap-4">
-                      <div className={`p-2.5 sm:p-3 rounded-lg ${canAfford ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                      <div className={`p-2.5 sm:p-3 rounded-lg ${canAfford ? `bg-zinc-800 ${theme.primary}` : 'bg-zinc-800 text-zinc-500'}`}>
                         {getIcon(upgrade.id)}
                       </div>
                       <div>
@@ -353,18 +398,18 @@ export default function App() {
 
                   <div className="mt-4 flex items-center justify-between relative z-10">
                     <div className="flex items-center gap-1.5">
-                      <Zap className={`w-3 h-3 ${canAfford ? 'text-emerald-500' : 'text-zinc-600'}`} />
-                      <span className={`text-xs sm:text-sm font-mono font-bold ${canAfford ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                      <Zap className={`w-3 h-3 ${canAfford ? theme.primary : 'text-zinc-600'}`} />
+                      <span className={`text-xs sm:text-sm font-mono font-bold ${canAfford ? theme.primary : 'text-zinc-500'}`}>
                         {formatNumber(cost)}
                       </span>
                     </div>
-                    <div className={`text-[9px] sm:text-[10px] font-mono uppercase tracking-wider flex items-center gap-1 ${canAfford ? 'text-emerald-500' : 'text-zinc-600'}`}>
+                    <div className={`text-[9px] sm:text-[10px] font-mono uppercase tracking-wider flex items-center gap-1 ${canAfford ? theme.primary : 'text-zinc-600'}`}>
                       Purchase <ChevronRight className="w-3 h-3" />
                     </div>
                   </div>
 
                   {/* Progress bar background for next level */}
-                  <div className="absolute bottom-0 left-0 h-[2px] bg-emerald-500/30 transition-all duration-300" style={{ width: `${Math.min(100, (state.currency / cost) * 100)}%` }} />
+                  <div className={`absolute bottom-0 left-0 h-[2px] ${theme.accent}/30 transition-all duration-300`} style={{ width: `${Math.min(100, (state.currency / cost) * 100)}%` }} />
                 </button>
               );
             })}
@@ -389,6 +434,90 @@ export default function App() {
           <span className="text-[10px] font-mono uppercase tracking-widest">Upgrades</span>
         </button>
       </nav>
+
+      {/* Settings Modal */}
+      <AnimatePresence>
+        {showSettings && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSettings(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]"
+            >
+              <div className="p-5 sm:p-6 border-b border-zinc-800 flex items-center justify-between bg-zinc-900">
+                <h2 className={`text-lg sm:text-xl font-display uppercase tracking-wider ${theme.primary}`}>Configuration</h2>
+                <button 
+                  onClick={() => setShowSettings(false)}
+                  className="text-zinc-500 hover:text-white transition-colors p-2 min-w-[44px] min-h-[44px]"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1 space-y-8">
+                {/* Visual Settings */}
+                <section>
+                  <h3 className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <Eye className="w-3 h-3" /> Visuals
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl border border-zinc-800">
+                      <div>
+                        <p className="text-sm font-bold text-zinc-200">Floating Text</p>
+                        <p className="text-[10px] text-zinc-500 uppercase font-mono">Show income on click</p>
+                      </div>
+                      <button 
+                        onClick={() => updateSettings({ showFloatingText: !state.settings?.showFloatingText })}
+                        className={`w-12 h-6 rounded-full transition-colors relative ${state.settings?.showFloatingText ? theme.accent : 'bg-zinc-700'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${state.settings?.showFloatingText ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl border border-zinc-800">
+                      <div>
+                        <p className="text-sm font-bold text-zinc-200">Animations</p>
+                        <p className="text-[10px] text-zinc-500 uppercase font-mono">Enable UI transitions</p>
+                      </div>
+                      <button 
+                        onClick={() => updateSettings({ enableAnimations: !state.settings?.enableAnimations })}
+                        className={`w-12 h-6 rounded-full transition-colors relative ${state.settings?.enableAnimations ? theme.accent : 'bg-zinc-700'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${state.settings?.enableAnimations ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Theme Selection */}
+                <section>
+                  <h3 className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <Monitor className="w-3 h-3" /> Interface Theme
+                  </h3>
+                  <div className="grid grid-cols-3 gap-3">
+                    {(['neon', 'matrix', 'classic'] as const).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => updateSettings({ theme: t })}
+                        className={`p-3 rounded-xl border transition-all text-center ${state.settings?.theme === t ? `${theme.border} bg-zinc-800` : 'border-zinc-800 bg-zinc-900 hover:bg-zinc-800'}`}
+                      >
+                        <div className={`w-full h-2 rounded-full mb-2 ${t === 'neon' ? 'bg-emerald-500' : t === 'matrix' ? 'bg-green-500' : 'bg-blue-500'}`} />
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">{t}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Changelog Modal */}
       <AnimatePresence>
@@ -442,6 +571,15 @@ export default function App() {
       <style>{`
         .custom-scrollbar {
           -webkit-overflow-scrolling: touch;
+        }
+        .neon-glow {
+          text-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+        }
+        .green-glow {
+          text-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+        }
+        .blue-glow {
+          text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
         }
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;

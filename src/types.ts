@@ -8,12 +8,19 @@ export interface Upgrade {
   type: 'click' | 'auto';
 }
 
+export interface GameSettings {
+  showFloatingText: boolean;
+  enableAnimations: boolean;
+  theme: 'neon' | 'matrix' | 'classic';
+}
+
 export interface GameState {
   currency: number;
   totalCurrencyEarned: number;
   clickCount: number;
   upgrades: Record<string, number>; // upgradeId -> level
   lastSave: number;
+  settings?: GameSettings;
 }
 
 export const UPGRADES: Upgrade[] = [
@@ -88,6 +95,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.9.0',
+    date: 'Thursday, April 9th, 2026',
+    sections: {
+      newContent: [
+        'Settings Menu: Customize your experience with toggles for floating text, animations, and visual themes.',
+        'Visual Themes: Added "Matrix" and "Classic" themes alongside the default "Neon" look.',
+        'UI Overhaul: Completely redesigned the interface for a more "Specialist Tool" aesthetic, featuring improved data density and technical accents.'
+      ],
+      improvements: [
+        'Optimized rendering for floating text and animations.',
+        'Refined the layout for better scannability of technical data.'
+      ]
+    }
+  },
   {
     version: '0.8.0',
     date: 'Thursday, April 2nd, 2026',
