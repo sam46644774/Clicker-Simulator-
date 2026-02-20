@@ -14,11 +14,21 @@ export interface GameSettings {
   theme: 'neon' | 'matrix' | 'classic';
 }
 
+export interface ResearchUpgrade {
+  id: string;
+  name: string;
+  description: string;
+  cost: number;
+  power: number;
+  type: 'click_mult' | 'auto_mult' | 'cost_reduction';
+}
+
 export interface GameState {
   currency: number;
   totalCurrencyEarned: number;
   clickCount: number;
   upgrades: Record<string, number>; // upgradeId -> level
+  research: Record<string, number>; // researchId -> level
   lastSave: number;
   settings?: GameSettings;
   prestigeCurrency: number;
@@ -79,6 +89,51 @@ export const UPGRADES: Upgrade[] = [
     costMultiplier: 1.25,
     power: 1000,
     type: 'auto'
+  },
+  {
+    id: 'dyson_swarm',
+    name: 'Dyson Swarm',
+    description: 'Harness the power of a star to generate 5000 clicks per second.',
+    baseCost: 1000000,
+    costMultiplier: 1.3,
+    power: 5000,
+    type: 'auto'
+  },
+  {
+    id: 'galactic_network',
+    name: 'Galactic Network',
+    description: 'Connect the galaxy to generate 25000 clicks per second.',
+    baseCost: 10000000,
+    costMultiplier: 1.35,
+    power: 25000,
+    type: 'auto'
+  }
+];
+
+export const RESEARCH_UPGRADES: ResearchUpgrade[] = [
+  {
+    id: 'optimized_synapse',
+    name: 'Optimized Synapse',
+    description: 'Increases click power by 25% per level.',
+    cost: 10,
+    power: 0.25,
+    type: 'click_mult'
+  },
+  {
+    id: 'parallel_processing',
+    name: 'Parallel Processing',
+    description: 'Increases auto-income by 25% per level.',
+    cost: 25,
+    power: 0.25,
+    type: 'auto_mult'
+  },
+  {
+    id: 'efficient_coding',
+    name: 'Efficient Coding',
+    description: 'Reduces upgrade costs by 5% per level.',
+    cost: 50,
+    power: 0.05,
+    type: 'cost_reduction'
   }
 ];
 
@@ -97,6 +152,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.1.0',
+    date: 'Thursday, April 23rd, 2026',
+    sections: {
+      newContent: [
+        'Research Expansion: Spend your Neural Shards on permanent Research Upgrades for massive multipliers.',
+        'New Tiers: Added Dyson Swarm and Galactic Network high-tier upgrades.',
+        'Multi-Buy: Toggle between buying 1, 10, or 100 upgrades at once.'
+      ],
+      improvements: [
+        'UI Refinement: Added visual indicators for active multipliers.',
+        'Performance: Optimized game loop for high-speed auto-clicking.'
+      ]
+    }
+  },
   {
     version: '1.0.1',
     date: 'Thursday, April 16th, 2026',

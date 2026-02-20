@@ -23,9 +23,13 @@ import {
   Monitor,
   FlaskConical,
   ShieldAlert,
-  ZapOff
+  ZapOff,
+  Sun,
+  Globe,
+  Microscope,
+  Layers
 } from 'lucide-react';
-import { GameState, UPGRADES, Upgrade, CHANGELOG, GameSettings } from './types';
+import { GameState, UPGRADES, Upgrade, CHANGELOG, GameSettings, RESEARCH_UPGRADES, ResearchUpgrade } from './types';
 
 const SAVE_ID = 'player_one'; 
 
@@ -47,6 +51,7 @@ export default function App() {
     totalCurrencyEarned: 0,
     clickCount: 0,
     upgrades: {},
+    research: {},
     lastSave: Date.now(),
     settings: {
       showFloatingText: true,
@@ -62,6 +67,7 @@ export default function App() {
   const [showChangelog, setShowChangelog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<'clicker' | 'upgrades' | 'research'>('clicker');
+  const [buyAmount, setBuyAmount] = useState<1 | 10 | 100>(1);
 
   // Keyboard Support
   useEffect(() => {
@@ -95,7 +101,8 @@ export default function App() {
             ...data,
             settings: data.settings ? { ...prev.settings, ...data.settings } : prev.settings,
             prestigeCurrency: data.prestigeCurrency ?? 0,
-            prestigeCount: data.prestigeCount ?? 0
+            prestigeCount: data.prestigeCount ?? 0,
+            research: data.research ?? {}
           }));
         }
       } catch (e) {
@@ -131,14 +138,26 @@ export default function App() {
 
   // Calculate stats
   const prestigeMultiplier = 1 + (state.prestigeCurrency * 0.01);
+  
+  const researchClickMult = 1 + RESEARCH_UPGRADES
+    .filter(r => r.type === 'click_mult')
+    .reduce((acc, r) => acc + (state.research[r.id] || 0) * r.power, 0);
+
+  const researchAutoMult = 1 + RESEARCH_UPGRADES
+    .filter(r => r.type === 'auto_mult')
+    .reduce((acc, r) => acc + (state.research[r.id] || 0) * r.power, 0);
+
+  const researchCostReduction = RESEARCH_UPGRADES
+    .filter(r => r.type === 'cost_reduction')
+    .reduce((acc, r) => acc + (state.research[r.id] || 0) * r.power, 0);
 
   const clickPower = Math.floor((1 + UPGRADES
     .filter(u => u.type === 'click')
-    .reduce((acc, u) => acc + (state.upgrades[u.id] || 0) * u.power, 0)) * prestigeMultiplier);
+    .reduce((acc, u) => acc + (state.upgrades[u.id] || 0) * u.power, 0)) * prestigeMultiplier * researchClickMult);
 
   const autoPower = Math.floor((UPGRADES
     .filter(u => u.type === 'auto')
-    .reduce((acc, u) => acc + (state.upgrades[u.id] || 0) * u.power, 0)) * prestigeMultiplier);
+    .reduce((acc, u) => acc + (state.upgrades[u.id] || 0) * u.power, 0)) * prestigeMultiplier * researchAutoMult);
 
   const calculatePendingShards = () => {
     const threshold = 1000000;
@@ -207,24 +226,52 @@ export default function App() {
   };
 
   const buyUpgrade = (upgrade: Upgrade) => {
-    const currentLevel = state.upgrades[upgrade.id] || 0;
-    const cost = Math.floor(upgrade.baseCost * Math.pow(upgrade.costMultiplier, currentLevel));
+    let currentLevel = state.upgrades[upgrade.id] || 0;
+    let totalCost = 0;
+    let levelsToBuy = 0;
 
-    if (state.currency >= cost) {
+    for (let i = 0; i < buyAmount; i++) {
+      const nextCost = getUpgradeCost(upgrade, currentLevel + i);
+      if (state.currency >= totalCost + nextCost) {
+        totalCost += nextCost;
+        levelsToBuy++;
+      } else {
+        break;
+      }
+    }
+
+    if (levelsToBuy > 0) {
       setState(prev => ({
         ...prev,
-        currency: prev.currency - cost,
+        currency: prev.currency - totalCost,
         upgrades: {
           ...prev.upgrades,
-          [upgrade.id]: currentLevel + 1
+          [upgrade.id]: (prev.upgrades[upgrade.id] || 0) + levelsToBuy
         }
       }));
     }
   };
 
-  const getUpgradeCost = (upgrade: Upgrade) => {
-    const currentLevel = state.upgrades[upgrade.id] || 0;
-    return Math.floor(upgrade.baseCost * Math.pow(upgrade.costMultiplier, currentLevel));
+  const buyResearch = (research: ResearchUpgrade) => {
+    const currentLevel = state.research[research.id] || 0;
+    const cost = research.cost * (currentLevel + 1);
+
+    if (state.prestigeCurrency >= cost) {
+      setState(prev => ({
+        ...prev,
+        prestigeCurrency: prev.prestigeCurrency - cost,
+        research: {
+          ...prev.research,
+          [research.id]: currentLevel + 1
+        }
+      }));
+    }
+  };
+
+  const getUpgradeCost = (upgrade: Upgrade, levelOverride?: number) => {
+    const currentLevel = levelOverride !== undefined ? levelOverride : (state.upgrades[upgrade.id] || 0);
+    const baseCost = upgrade.baseCost * (1 - researchCostReduction);
+    return Math.floor(baseCost * Math.pow(upgrade.costMultiplier, currentLevel));
   };
 
   const getIcon = (id: string) => {
@@ -235,7 +282,18 @@ export default function App() {
       case 'factory': return <Factory className="w-5 h-5" />;
       case 'quantum_processor': return <Cpu className="w-5 h-5" />;
       case 'data_store': return <Database className="w-5 h-5" />;
+      case 'dyson_swarm': return <Sun className="w-5 h-5" />;
+      case 'galactic_network': return <Globe className="w-5 h-5" />;
       default: return <TrendingUp className="w-5 h-5" />;
+    }
+  };
+
+  const getResearchIcon = (id: string) => {
+    switch(id) {
+      case 'optimized_synapse': return <MousePointerClick className="w-5 h-5" />;
+      case 'parallel_processing': return <Layers className="w-5 h-5" />;
+      case 'efficient_coding': return <Microscope className="w-5 h-5" />;
+      default: return <FlaskConical className="w-5 h-5" />;
     }
   };
 
@@ -288,7 +346,7 @@ export default function App() {
           </div>
           <div>
             <h1 className={`text-lg sm:text-xl font-display uppercase tracking-wider ${theme.primary} ${theme.glow}`}>Neon Genesis</h1>
-            <p className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">v1.0.1</p>
+            <p className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">v1.1.0</p>
           </div>
         </div>
 
@@ -418,8 +476,19 @@ export default function App() {
 
           {activeTab === 'upgrades' ? (
             <>
-              <div className="p-4 sm:p-6 border-b border-zinc-800 sm:hidden">
-                <h2 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-[0.2em] text-zinc-400">Upgrades & Tech</h2>
+              <div className="p-4 sm:p-6 border-b border-zinc-800 flex items-center justify-between">
+                <h2 className="text-xs sm:text-sm font-mono font-bold uppercase tracking-[0.2em] text-zinc-400 sm:hidden">Upgrades</h2>
+                <div className="flex bg-zinc-800/50 rounded-lg p-1 border border-zinc-800 ml-auto sm:ml-0">
+                  {([1, 10, 100] as const).map(amt => (
+                    <button
+                      key={amt}
+                      onClick={() => setBuyAmount(amt)}
+                      className={`px-3 py-1 text-[10px] font-mono font-bold rounded transition-all ${buyAmount === amt ? `${theme.accent} text-white` : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                      x{amt}
+                    </button>
+                  ))}
+                </div>
               </div>
               
               <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 custom-scrollbar">
@@ -480,6 +549,57 @@ export default function App() {
               </div>
               
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-8 custom-scrollbar">
+                {/* Research Upgrades */}
+                <div className="space-y-4">
+                  <h3 className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                    <Microscope className="w-3 h-3" /> Permanent Research
+                  </h3>
+                  <div className="space-y-3">
+                    {RESEARCH_UPGRADES.map(research => {
+                      const level = state.research[research.id] || 0;
+                      const cost = research.cost * (level + 1);
+                      const canAfford = state.prestigeCurrency >= cost;
+
+                      return (
+                        <button
+                          key={research.id}
+                          onClick={() => buyResearch(research)}
+                          disabled={!canAfford}
+                          className={`w-full text-left p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden ${
+                            canAfford 
+                              ? `bg-zinc-900 border-zinc-800 hover:${theme.border} hover:bg-zinc-800/80` 
+                              : 'bg-zinc-900/50 border-zinc-800/50 opacity-60 grayscale cursor-not-allowed'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3 sm:gap-4 relative z-10">
+                            <div className={`p-2.5 sm:p-3 rounded-lg ${canAfford ? `bg-zinc-800 ${theme.primary}` : 'bg-zinc-800 text-zinc-500'}`}>
+                              {getResearchIcon(research.id)}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <h4 className="font-bold text-zinc-200 text-sm">{research.name}</h4>
+                                <span className="text-[9px] sm:text-[10px] font-mono bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-500 uppercase">LVL {level}</span>
+                              </div>
+                              <p className="text-[11px] text-zinc-500 mt-1">{research.description}</p>
+                              <div className="mt-3 flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <Sparkles className={`w-3 h-3 ${canAfford ? theme.primary : 'text-zinc-600'}`} />
+                                  <span className={`text-xs font-mono font-bold ${canAfford ? theme.primary : 'text-zinc-500'}`}>
+                                    {cost} Shards
+                                  </span>
+                                </div>
+                                <div className={`text-[9px] font-mono uppercase tracking-wider flex items-center gap-1 ${canAfford ? theme.primary : 'text-zinc-600'}`}>
+                                  Research <ChevronRight className="w-3 h-3" />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Prestige Stats */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-zinc-900/50 rounded-2xl border border-zinc-800">
