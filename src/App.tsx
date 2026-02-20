@@ -213,7 +213,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-lg sm:text-xl font-display uppercase tracking-wider text-emerald-400 neon-glow">Neon Genesis</h1>
-            <p className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">v0.7.0</p>
+            <p className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">v0.8.0</p>
           </div>
         </div>
 

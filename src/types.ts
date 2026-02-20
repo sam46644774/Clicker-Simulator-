@@ -31,7 +31,7 @@ export const UPGRADES: Upgrade[] = [
     name: 'Nano-Bot',
     description: 'Clicks for you once every second.',
     baseCost: 50,
-    costMultiplier: 1.2,
+    costMultiplier: 1.15,
     power: 1,
     type: 'auto'
   },
@@ -39,36 +39,36 @@ export const UPGRADES: Upgrade[] = [
     id: 'mega_click',
     name: 'Hydraulic Press',
     description: 'Increases click power by 10.',
-    baseCost: 250,
-    costMultiplier: 1.3,
+    baseCost: 500,
+    costMultiplier: 1.2,
     power: 10,
     type: 'click'
   },
   {
     id: 'factory',
     name: 'Click Factory',
-    description: 'Generates 10 clicks per second.',
-    baseCost: 1000,
-    costMultiplier: 1.25,
-    power: 10,
+    description: 'Generates 25 clicks per second.',
+    baseCost: 2000,
+    costMultiplier: 1.18,
+    power: 25,
     type: 'auto'
   },
   {
     id: 'quantum_processor',
     name: 'Quantum Processor',
-    description: 'Generates 100 clicks per second.',
-    baseCost: 10000,
-    costMultiplier: 1.35,
-    power: 100,
+    description: 'Generates 150 clicks per second.',
+    baseCost: 15000,
+    costMultiplier: 1.22,
+    power: 150,
     type: 'auto'
   },
   {
     id: 'data_store',
     name: 'Neural DataStore',
-    description: 'A massive array of servers generating 500 clicks per second.',
-    baseCost: 50000,
-    costMultiplier: 1.4,
-    power: 500,
+    description: 'A massive array of servers generating 1000 clicks per second.',
+    baseCost: 100000,
+    costMultiplier: 1.25,
+    power: 1000,
     type: 'auto'
   }
 ];
@@ -88,6 +88,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.8.0',
+    date: 'Thursday, April 2nd, 2026',
+    sections: {
+      improvements: [
+        'Game Balancing: Adjusted upgrade costs and power outputs for a smoother progression curve.',
+        'Economy Tuning: Lowered cost multipliers for high-tier upgrades to make late-game goals more achievable.'
+      ]
+    }
+  },
   {
     version: '0.7.0',
     date: 'Thursday, March 26th, 2026',
